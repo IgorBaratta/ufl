@@ -14,6 +14,7 @@ import io
 import os
 import re
 import ufl
+from ufl import Mesh
 from ufl.log import error, warning
 from ufl.utils.sorting import sorted_by_key
 from ufl.form import Form
@@ -30,6 +31,7 @@ class FileData(object):
         self.coefficients = []
         self.expressions = []
         self.forms = []
+        self.meshes = []
         self.object_names = {}
         self.object_by_name = {}
         self.reserved_objects = {}
@@ -138,7 +140,7 @@ def interpret_ufl_namespace(namespace):
             # FIXME: Remove after FFC is updated to use reserved_objects:
             ufd.object_names[name] = value
             ufd.object_by_name[name] = value
-        elif isinstance(value, (FiniteElementBase, Coefficient, Constant, Argument, Form, Expr)):
+        elif isinstance(value, (FiniteElementBase, Coefficient, Constant, Argument, Form, Expr, Mesh)):
             # Store instance <-> name mappings for important objects
             # without a reserved name
             ufd.object_names[id(value)] = name
@@ -206,6 +208,19 @@ def interpret_ufl_namespace(namespace):
         error("Expecting 'expressions' to be a list or tuple, not '%s'." % type(ufd.expressions))
     if not all(isinstance(e, Expr) for e in ufd.expressions):
         error("Expecting 'expressions' to be a list of Expr instances.")
+
+    # Get list of mesh objects
+    meshes = namespace.get("meshes")
+    if meshes is None:
+        meshes = [ufd.object_by_name.get(name) for name in ("mesh",)]
+        meshes = [m for m in meshes if m is not None]
+    ufd.meshes = meshes
+
+    # Validate types
+    if not isinstance(ufd.coefficients, (list, tuple)):
+        error("Expecting 'meshes' to be a list or tuple, not '%s'." % type(ufd.meshes))
+    if not all(isinstance(m, Mesh) for m in ufd.meshes):
+        error("Expecting 'meshes' to be a list of Mesh instances.")
 
     # Return file data
     return ufd
